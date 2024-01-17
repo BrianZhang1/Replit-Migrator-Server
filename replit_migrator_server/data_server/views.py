@@ -118,3 +118,41 @@ def data_handler(request):
             return JsonResponse({"status": "error", "message": "Invalid credentials"})
 
 
+
+@csrf_exempt
+def delete_user_handler(request):
+    """
+    Handles requests to delete user data from the database.
+
+    User authentication is required.
+    """
+
+    # Retrieve username and password from POST data.
+    username = request.POST.get('username')
+    password = request.POST.get('password')
+
+    # If no username and password is provided, return an error.
+    if not username or not password:
+        return JsonResponse({"status": "error", "message": "Username and password not provided"})
+
+    # Authenticate user.
+    user = authenticate(request, username=username, password=password)
+
+    # If user is authenticated, proceed.
+    if user is not None:
+        # Load JSON database.
+        json_data = read_from_database()
+
+        # Delete user data from JSON database.
+        json_data.pop(username, None)
+
+        # Save JSON database.
+        with open('db.json', 'w') as f:
+            json.dump(json_data, f)
+
+        # Return success message.
+        return JsonResponse({"status": "success"})
+    else:
+        # If user is not authenticated, return an error.
+        return JsonResponse({"status": "error", "message": "Invalid credentials"})
+
