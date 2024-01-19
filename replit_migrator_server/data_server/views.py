@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db.utils import IntegrityError
 import json
+from openai import OpenAI
 
 
 def read_from_database():
@@ -155,4 +156,49 @@ def delete_user_handler(request):
     else:
         # If user is not authenticated, return an error.
         return JsonResponse({"status": "error", "message": "Invalid credentials"})
+
+
+@csrf_exempt
+def chat_handler(request):
+    """
+    Handles POST requests with chat history and sends to OpenAI chat completions
+    API. Returns the response from the API.
+    """
+
+    # Get chat history from POST data and convert to dict.
+    chat_history = json.loads(request.POST.get('chat_history'))
+
+    # If no chat history is provided, return an error.
+    if not chat_history:
+        return JsonResponse({"status": "error", "message": "Chat history not provided"})
+    
+    # Create system prompt.
+    system_prompt = '''
+        You are an assistant that answers user's questions related to the Replit Migrator app.
+        The features include:
+            - downloading all Replit files from the web through Selenium
+            - direct express if user has already gone through the download process
+            - generating reports based on project and file data
+            - the option to interact with an AI chatbot (you)
+            - searching for projects and files by name, date, or content
+            - backup their migration data to the cloud
+        To access report, search, and express download, the user must have already downloaded
+        their Replit files.
+        Politely refuse to answer questions that are not related to the Repl.it Migrator app.
+    '''
+
+    # Load API key from file.
+    with open('openai_api_key.txt', 'r') as f:
+        api_key = f.read()
+
+    # Create client and send chat history to OpenAI API.
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model='gpt-3.5-turbo', 
+        messages=[{'role': 'system', 'content': system_prompt}] + chat_history
+    )
+
+    # Return response from OpenAI API.
+    response = response.choices[0].message.content
+    return JsonResponse({"status": "success", "chat_response": response})
 
